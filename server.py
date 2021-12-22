@@ -11,45 +11,60 @@ import threading
     you can create a new file to replace this file.
 '''
 
+
 def socket_listen(port):
     '''
         Start a threading function to listen a port
     '''
     # Create a socket
-    sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     # Bind the address
-    sock.bind(('',port))
+    sock.bind(('', port))
     # Socket listen
     sock.listen(2)
     # Start to listen
+
+    client_list = []
+
+    # conn, address = sock.accept()
     while True:
         # Wait to client to connect
-        conn,address = sock.accept()
-        '''
+        conn, address = sock.accept()
+
+        ''' 
             Modify here
         '''
+        client_list.append(conn)
         # Start the server socket threading class
         if port == XXPORT:
             # Initiate the Port1Socket and start
+            Port1Socket = ServerSocket(conn, address)
+            Port1Socket.start()
+            # print(Port1Socket.data)
             # Port1Socket(conn,address).start()
-            pass
+            # for connected in client_list:
+            #     connected.sendall(Port1Socket.data)
         elif port == YYPORT:
             # Initiate the Port2Socket and start
-            # Port2Socket(conn,address).start()
-            pass
+            Port2Socket = Audio_ServerSocket(conn, address)
+            Port2Socket.start()
+            # zdata = Port2Socket.start()
+            # for connected in client_list:
+            #     connected.sendall(Port2Socket.data)
+
 
 if __name__ == "__main__":
     # Threading lists
     ths = []
-    
+
     # Ports which need to listen
     '''Modify here'''
-    ports = [XXPORT,YYPORT]
+    ports = [XXPORT, YYPORT]
 
     # Add threadings
     for port in ports:
-        ths.append(threading.Thread(target=socket_listen,args=(port,)))
+        ths.append(threading.Thread(target=socket_listen, args=(port,)))
     # Start threading
     try:
         for th in ths:
