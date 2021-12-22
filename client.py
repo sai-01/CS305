@@ -1,3 +1,5 @@
+import random
+
 from CONSTANTS import *
 from client_sockets import *
 
@@ -27,13 +29,15 @@ from client_sockets import *
     related code.
 '''
 
+
 class Client():
     '''
-        This is a client class. 
+        This is a client class.
         Feel free to define functions that you need here.
         The client would contain the ClientSocket(or its subclasses)
     '''
-    def __init__(self,addr,sport = None):
+
+    def __init__(self, addr, sport=None):
         '''
             @Parameters
                 addr: A dictionary of server address
@@ -47,7 +51,8 @@ class Client():
         # self.xx_sockets = XXSocket(addr['xx'],self,sport)
         # self.yy_sockets = YYSocket(addr['yy'],self,sport)
         # ...
-
+        self.video_sockets = ClientSocket(addr['xx'], self, sport)
+        self.audio_sockets = AudioClientSocket(addr['yy'], self, sport)
         # You can initiate whatever you think is needed
 
         # Here we define two variables for CIL menu
@@ -56,7 +61,7 @@ class Client():
 
     # Here we define an action function to change the CIL menu
     # based on different actions
-    def action(self,action):
+    def action(self, action):
         if self.state == MAIN:
             if action == '1':
                 self.create_meeting()
@@ -71,31 +76,47 @@ class Client():
                 Please complete following codes
             '''
             if action == '1':
-                pass
+                mid = self.create_meeting()
+                print(mid)
             elif action == '2':
-                pass
-            #elif ...
+                sid = input("input meetingID: ")
+                self.join_meeting(sid)
+            # elif ...
 
     # All the functions defined bellow are not a must
     # You can define whatever function as you like
     def create_meeting(self):
-        pass
+        meetingID = random.randint(100000, 999999)
+        return meetingID
 
-    def join_meeting(self,sid):
-        pass
+    def join_meeting(self, sid):
+        self.video_sockets.send_thread.start()
+        self.video_sockets.receive_thread.start()
+        self.audio_sockets.send_thread.start()
+        self.audio_sockets.receive_thread.start()
+
 
 if __name__ == "__main__":
-    # The ip address of the server
-    ip = '127.0.0.1'
+    # The ip address of the serverip
+    ip = '10.24.184.6'
+    # ip = '10.15.135.9'
+    # ip = '10.24.240.125'
+    # ip = '10.24.253.245'
+    # ip = '192.168.13.75' #24/61
+    # ip = '192.168.13.61'
+    # ip = '127.0.0.1'
+
     # The example ports of the server
     # You can use one or more than one sockets
     address = {
-        'xx': (ip,XXPORT),
-        'yy': (ip,YYPORT),
+        'xx': (ip, XXPORT),
+        'yy': (ip, YYPORT),
     }
     client = Client(address)
     # A CIL menu loop
+    # print("test")
     while True:
+        # print("loop")
         if client.changed and client.state == MAIN:
             client.changed = False
             # Main menu
@@ -105,7 +126,7 @@ if __name__ == "__main__":
             client.action(action)
         elif client.changed and client.state == MEETING:
             client.changed = False
-            print("You are in the meeting: %d"%client.sid)
+            print("You are in the meeting: %d" % client.sid)
             # meeting menu
             print("1. (Stop) Share screen")
             print("2. (Stop) Control other's screen")
