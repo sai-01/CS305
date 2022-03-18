@@ -22,11 +22,9 @@ def socket_listen(port):
     # Bind the address
     sock.bind(('', port))
     # Socket listen
-    sock.listen(2)
+    sock.listen(5)
     # Start to listen
-
-    client_list = []
-
+    # client_list = []
     # conn, address = sock.accept()
     while True:
         # Wait to client to connect
@@ -35,12 +33,13 @@ def socket_listen(port):
         ''' 
             Modify here
         '''
-        client_list.append(conn)
+        # client_list.append(conn)
         # Start the server socket threading class
         if port == XXPORT:
             # Initiate the Port1Socket and start
             Port1Socket = ServerSocket(conn, address)
             Port1Socket.start()
+
             # print(Port1Socket.data)
             # Port1Socket(conn,address).start()
             # for connected in client_list:
@@ -52,6 +51,14 @@ def socket_listen(port):
             # zdata = Port2Socket.start()
             # for connected in client_list:
             #     connected.sendall(Port2Socket.data)
+        elif port == ZZPORT:
+            # Initiate the Port1Socket and start
+            Port3Socket = msg_ServerSocket(conn, address)
+            Port3Socket.start()
+        elif port == AAPORT:
+            # Initiate the Port1Socket and start
+            Port4Socket = desktop_ServerSocket(conn, address)
+            Port4Socket.start()
 
 
 if __name__ == "__main__":
@@ -60,7 +67,7 @@ if __name__ == "__main__":
 
     # Ports which need to listen
     '''Modify here'''
-    ports = [XXPORT, YYPORT]
+    ports = [XXPORT, YYPORT, ZZPORT, AAPORT]
 
     # Add threadings
     for port in ports:

@@ -22,6 +22,7 @@ import threading
     We do not provide any information about the Meeting class,
     so you can design it as you like.
 '''
+meeting_list = []
 
 
 class Meeting():
@@ -29,22 +30,32 @@ class Meeting():
         self.meetingID = random.randint(100000, 999999)
         self.conn = None
         self.clients_addrs = []
-        self.clients_conns = []
+        self.clients_conns_m = []
+        self.clients_conns_v = []
+        self.clients_conns_a = []
+        self.clients_conns_d = []
+        self.control_addr = None
+        self.control_conn = None
+        self.host = None
 
-    def add_client(self, client_conn, client_addr):
+    def add_client_conn_m(self, client_conn):
+        self.clients_conns_m.append(client_conn)
+
+    def add_client_conn_v(self, client_conn):
+        self.clients_conns_v.append(client_conn)
+
+    def add_client_conn_a(self, client_conn):
+        self.clients_conns_a.append(client_conn)
+
+    def add_client_conn_d(self, client_conn):
+        self.clients_conns_d.append(client_conn)
+
+    def add_client_addr(self, client_addr):
         self.clients_addrs.append(client_addr)
-        self.clients_conns.append(client_conn)
 
-    def remove_client(self, client_conn, client_addr):
-        self.clients_conns.remove(client_conn)
+    def remove_client(self, client_addr):
         self.clients_addrs.remove(client_addr)
 
-
-    # def __del__(self):
-    #     for client in self.clients:
-    #         client.video_sockets.__del__()
-    #         client.audio_sockets.__del__()
-global meeting_list
 
 class ServerSocket(threading.Thread):
     def __init__(self, conn, addr):
@@ -65,10 +76,12 @@ class ServerSocket(threading.Thread):
         self.data = "".encode("utf-8")
 
     def run(self):
-        # data = "".encode("utf-8")
+        global meeting_list
+        flag_once = 1
         payload_size = struct.calcsize("Q")  # 结果为8
-        # cv2.namedWindow(str(self.addr), cv2.WINDOW_NORMAL)
+
         while True:
+            self.data = b''
             while len(self.data) < payload_size:
                 self.data += self.conn.recv(81920)
             packed_size = self.data[:payload_size]
@@ -76,23 +89,27 @@ class ServerSocket(threading.Thread):
             msg_size = struct.unpack("Q", packed_size)[0]
             while len(self.data) < msg_size:
                 self.data += self.conn.recv(81920)
-
             zframe_data = self.data[:msg_size]
-
             self.data = zframe_data
-            self.conn.sendall(struct.pack("Q", len(self.data)) + self.data)
-            # print(self.data)
-            # data = self.data[msg_size:]
-            # frame_data = zlib.decompress(zframe_data)
-            # frame = pickle.loads(frame_data)
-            # self.data = pickle.dumps(frame)
-            # try:
-            #     return struct.pack("Q", len(senddata)) + senddata
-            # except:
-            #     break
-            # cv2.imshow(str(self.addr), frame)
-            # if cv2.waitKey(1) & 0xFF == 27:
-            #     break
+            for meeting in meeting_list:
+                for i in range(len(meeting.clients_addrs)):
+                    if meeting.clients_addrs[i][0] == self.addr[0]:
+                        if flag_once == 1:
+                            meeting.add_client_conn_v(self.conn)
+                            flag_once = 0
+                        for j in range(len(meeting.clients_conns_v)):
+                            if meeting.clients_conns_v[j] != self.conn:
+                                meeting.clients_conns_v[j].sendall(
+                                    struct.pack("Q", len(self.addr[0].encode())) + self.addr[0]
+                                    .encode() + struct.pack("Q", len(self.data)) +
+                                    self.data)
+                        break
+                    else:
+                        continue
+                else:
+                    print('6')
+                    continue
+                break
 
 
 class Audio_ServerSocket(threading.Thread):
@@ -105,31 +122,26 @@ class Audio_ServerSocket(threading.Thread):
         self.data = "".encode("utf-8")
 
     def run(self):
-        payload_size = struct.calcsize("Q")  # 返回对应于格式字符串fmt的结构，L为4
-
-        # while True:
-        #     while len(self.data) < payload_size:
-        #         self.data += self.conn.recv(81920)
-        #     packed_size = self.data[:payload_size]
-        #     self.data = self.data[payload_size:]
-        #     msg_size = struct.unpack("Q", packed_size)[0]
-        #     while len(self.data) < msg_size:
-        #         self.data += self.conn.recv(81920)
-        #     frame_data = self.data[:msg_size]
-        #     # data = self.data[msg_size:]
-        #     # frames = pickle.loads(frame_data)
-        #     # senddata = pickle.dumps(frame_data)
-        #     self.conn.sendall(struct.pack("Q", len (frame_data)) + frame_data)
-
-        while 1:
+        global meeting_list
+        flag_once = 1
+        while True:
             try:
                 data = self.conn.recv(81920)
-                self.conn.sendall(data)
+                for meeting in meeting_list:
+                    for i in range(len(meeting.clients_addrs)):
+                        if meeting.clients_addrs[i][0] == self.addr[0]:
+                            if flag_once == 1:
+                                meeting.add_client_conn_a(self.conn)
+                                flag_once = 0
+                            for j in range(len(meeting.clients_conns_a)):
+                                if meeting.clients_conns_a[j] != self.conn:
+                                    meeting.clients_conns_a[j].sendall(data)
+                            break
+                    else:
+                        continue
+                    break
             except:
                 pass
-
-            # for frame in frames:
-            #     self.stream.write(frame, CHUNK)
 
 
 class msg_ServerSocket(threading.Thread):
@@ -140,13 +152,131 @@ class msg_ServerSocket(threading.Thread):
         self.data = "".encode("utf-8")
 
     def run(self):
+        global meeting_list
         while 1:
             try:
                 data = self.conn.recv(1024)
                 data = data.decode()
-                if data is not None:
-                    m=Meeting()
+                if data == '1':
+                    m = Meeting()
                     meeting_list.append(m)
+                    m.host = self.addr[0]
                     self.conn.sendall(str(m.meetingID).encode())
+                elif data == '2':
+                    for meeting in meeting_list:
+                        for i in range(len(meeting.clients_addrs)):
+                            if meeting.clients_addrs[i][0] == self.addr[0]:
+                                meeting.remove_client(client_addr=self.addr)
+                                try:
+                                    meeting.clients_conns_a.remove(meeting.clients_conns_a[i])
+                                    meeting.clients_conns_v.remove(meeting.clients_conns_v[i])
+                                    meeting.clients_conns_d.remove(meeting.clients_conns_d[i])
+                                except:
+                                    pass
+                                self.conn.sendall('88'.encode())
+                                break
+                        else:
+                            continue
+                        break
+                elif data == '3':
+                    for meeting in meeting_list:
+                        for i in range(len(meeting.clients_addrs)):
+                            if meeting.clients_addrs[i][0] == self.addr[0]:
+                                s = ''
+                                for addr in meeting.clients_addrs:
+                                    s1, s2 = addr
+                                    s += s1 + ','
+                                self.conn.sendall(s.encode())
+                                print(s)
+                                break
+                        else:
+                            continue
+                        break
+                elif 'ip' in data:
+                    ip = data[2:]
+                    for meeting in meeting_list:
+                        for i in range(len(meeting.clients_addrs)):
+                            if meeting.clients_addrs[i][0] == self.addr[0]:
+                                for j in range(len(meeting.clients_addrs)):
+                                    if ip == meeting.clients_addrs[j][0]:
+                                        meeting.control_addr = self.addr
+                                        meeting.control_conn = self.conn
+                                        meeting.clients_conns_m[j].sendall('if'.encode())
+                                        break
+                        else:
+                            continue
+                        break
+                elif data == 'y':
+                    for meeting in meeting_list:
+                        for i in range(len(meeting.clients_addrs)):
+                            if meeting.clients_addrs[i][0] == self.addr[0]:
+                                meeting.control_conn.sendall('y'.encode())
+                                break
+                        else:
+                            continue
+                        break
+                elif data == 'n':
+                    for meeting in meeting_list:
+                        for i in range(len(meeting.clients_addrs)):
+                            if meeting.clients_addrs[i][0] == self.addr[0]:
+                                meeting.control_conn.sendall('n'.encode())
+                                break
+                        else:
+                            continue
+                        break
+                elif 'close' in data:
+                    mid = data[5:]
+                    for meeting in meeting_list:
+                        if meeting.meetingID == int(mid):
+                            if meeting.host == self.addr[0]:
+                                self.conn.sendall('Close Success'.encode())
+                                meeting_list.remove(meeting)
+                                break
+                            else:
+                                self.conn.sendall('No Way'.encode())
+                                break
+                else:
+                    flag = 0
+                    for meeting in meeting_list:
+                        if meeting.meetingID == int(data):
+                            meeting.add_client_addr(self.addr)
+                            meeting.add_client_conn_m(self.conn)
+                            self.conn.sendall('ok'.encode())
+                            flag = 1
+                            break
+                    if flag == 0:
+                        self.conn.sendall('no'.encode())
+
+            except:
+                pass
+
+
+class desktop_ServerSocket(threading.Thread):
+    def __init__(self, conn, addr):
+        super(desktop_ServerSocket, self).__init__()
+        self.conn = conn
+        self.addr = addr
+        self.data = "".encode("utf-8")
+
+    def run(self):
+        global meeting_list
+        flag_once = 1
+        while True:
+            try:
+                data = self.conn.recv(1024)
+                if data is not None:
+                    for meeting in meeting_list:
+                        for i in range(len(meeting.clients_addrs)):
+                            if meeting.clients_addrs[i][0] == self.addr[0]:
+                                if flag_once == 1:
+                                    meeting.add_client_conn_d(self.conn)
+                                    flag_once = 0
+                                for j in range(len(meeting.clients_conns_d)):
+                                    if meeting.clients_conns_d[j] != self.conn:
+                                      meeting.clients_conns_d[j].sendall(data)
+                                break
+                        else:
+                            continue
+                        break
             except:
                 pass
